@@ -1,0 +1,8 @@
+{
+  "name": "Cirleni Hernández Brand Official",
+  "description": "Boutique de moda femenina de lujo en Colombia. Enterizos, vestidos, conjuntos y alta costura con pedidos exclusivos vía WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

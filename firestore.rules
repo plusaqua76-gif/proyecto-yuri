@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidProduct(data) {
+      return data.id is string
+        && isValidId(data.id)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.category is string
+        && data.price is number && data.price >= 0
+        && data.images is list && data.images.size() > 0 && data.images.size() <= 30
+        && data.colors is list && data.colors.size() <= 20
+        && data.sizes is list && data.sizes.size() <= 20
+        && (!('videoUrl' in data) || data.videoUrl == null || data.videoUrl is string)
+        && (!('description' in data) || data.description is string)
+        && (!('isNew' in data) || data.isNew is bool)
+        && (!('isExclusive' in data) || data.isExclusive is bool)
+        && (!('isSale' in data) || data.isSale is bool)
+        && (!('isBestseller' in data) || data.isBestseller is bool)
+        && (!('originalPrice' in data) || data.originalPrice == null || data.originalPrice is number)
+        && (!('colorImageMap' in data) || data.colorImageMap is map)
+        && (!('imageColorMap' in data) || data.imageColorMap is map)
+        && (!('imageColors' in data) || data.imageColors is list)
+        && (!('coverMediaType' in data) || data.coverMediaType is string)
+        && (!('primaryMediaUrl' in data) || data.primaryMediaUrl is string)
+        && (!('material' in data) || data.material is string)
+        && (!('composition' in data) || data.composition is string);
+    }
+
+    function isValidSettings(data) {
+      return data.brandName is string && data.brandName.size() > 0 && data.brandName.size() <= 150
+        && data.whatsappNumber is string && data.whatsappNumber.size() > 0 && data.whatsappNumber.size() <= 30
+        && data.whatsappDisplay is string && data.whatsappDisplay.size() > 0 && data.whatsappDisplay.size() <= 50
+        && (!('instagramUrl' in data) || data.instagramUrl is string)
+        && (!('logoUrl' in data) || data.logoUrl is string)
+        && (!('announcementText' in data) || data.announcementText is string)
+        && (!('shippingNotice' in data) || data.shippingNotice is string)
+        && (!('freeShippingThreshold' in data) || data.freeShippingThreshold is number)
+        && (!('adminPasscode' in data) || data.adminPasscode is string);
+    }
+
+    function isValidInstagramMedia(data) {
+      return data.id is string && isValidId(data.id)
+        && data.type in ['image', 'video', 'reel']
+        && data.url is string && data.url.size() > 0
+        && (!('permalink' in data) || data.permalink is string)
+        && (!('caption' in data) || data.caption is string)
+        && (!('thumbnailUrl' in data) || data.thumbnailUrl is string)
+        && (!('likes' in data) || data.likes is number)
+        && (!('comments' in data) || data.comments is number);
+    }
+
+    // Products catalog
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isValidId(productId) && isValidProduct(request.resource.data);
+      allow update: if isValidId(productId) && isValidProduct(request.resource.data);
+      allow delete: if isValidId(productId);
+    }
+
+    // Store settings & WhatsApp config
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create: if isValidId(settingId) && isValidSettings(request.resource.data);
+      allow update: if isValidId(settingId) && isValidSettings(request.resource.data);
+      allow delete: if isValidId(settingId);
+    }
+
+    // Instagram lookbook media
+    match /instagram_media/{mediaId} {
+      allow read: if true;
+      allow create: if isValidId(mediaId) && isValidInstagramMedia(request.resource.data);
+      allow update: if isValidId(mediaId) && isValidInstagramMedia(request.resource.data);
+      allow delete: if isValidId(mediaId);
+    }
+  }
+}

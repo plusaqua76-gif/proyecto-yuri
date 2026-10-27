@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Prenda de moda femenina del catálogo de Cirleni Hernández",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "enum": ["todos", "enterizos", "vestidos", "conjuntos", "blusas", "pantalones", "accesorios", "ofertas"] },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "description": { "type": "string", "maxLength": 4000 },
+        "shortDescription": { "type": "string", "maxLength": 500 },
+        "isNew": { "type": "boolean" },
+        "isExclusive": { "type": "boolean" },
+        "isSale": { "type": "boolean" },
+        "isBestseller": { "type": "boolean" },
+        "images": { "type": "array" },
+        "colors": { "type": "array" },
+        "sizes": { "type": "array" },
+        "inventory": { "type": "array" },
+        "material": { "type": "string", "maxLength": 200 },
+        "composition": { "type": "string", "maxLength": 200 },
+        "careInstructions": { "type": "array" },
+        "colorImageMap": { "type": "object" },
+        "imageColorMap": { "type": "object" },
+        "videoUrl": { "type": "string", "maxLength": 2000000 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "category", "price", "images", "colors", "sizes", "createdAt"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Configuración global de la boutique y WhatsApp oficial",
+      "type": "object",
+      "properties": {
+        "brandName": { "type": "string", "maxLength": 150 },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "whatsappDisplay": { "type": "string", "maxLength": 50 },
+        "instagramUrl": { "type": "string", "maxLength": 500 },
+        "logoUrl": { "type": "string", "maxLength": 2000000 },
+        "announcementText": { "type": "string", "maxLength": 500 },
+        "shippingNotice": { "type": "string", "maxLength": 1000 },
+        "freeShippingThreshold": { "type": "number" },
+        "adminPasscode": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["brandName", "whatsappNumber", "whatsappDisplay"]
+    },
+    "InstagramMedia": {
+      "title": "InstagramMedia",
+      "description": "Publicación o video del muro de Instagram",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["image", "video", "reel"] },
+        "url": { "type": "string", "maxLength": 2000000 },
+        "thumbnailUrl": { "type": "string", "maxLength": 2000000 },
+        "permalink": { "type": "string", "maxLength": 1000 },
+        "caption": { "type": "string", "maxLength": 1000 },
+        "likes": { "type": "number" },
+        "comments": { "type": "number" }
+      },
+      "required": ["id", "type", "url"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Colección de prendas y catálogo de la boutique"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/StoreSettings" },
+      "description": "Configuración de la tienda y número de WhatsApp"
+    },
+    "/instagram_media/{mediaId}": {
+      "schema": { "$ref": "#/entities/InstagramMedia" },
+      "description": "Muro de fotos y reels de Instagram"
+    }
+  }
+}
