@@ -18,6 +18,7 @@ import { Product, GarmentSize, GarmentColor } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatCOP, calculateDiscount, generateWhatsAppOrderUrl } from '../utils/formatters';
 import { getProductImageForColor } from '../utils/imageOptimizer';
+import { OptimizedImage } from './OptimizedImage';
 
 export const ProductDetailModal: React.FC = () => {
   const {
@@ -200,15 +201,15 @@ export const ProductDetailModal: React.FC = () => {
               <div className="space-y-4">
                 {/* Main Large Image */}
                 <div className="relative aspect-[4/5] max-h-[350px] sm:aspect-[3/4] sm:max-h-[520px] w-full rounded-xl overflow-hidden bg-white border border-[#EDE4DA] shadow-xs">
-                  <img
+                  <OptimizedImage
                     src={product.images[activeImageIndex] || product.images[0] || '/src/assets/images/fashion_enterizo_black_1792782858876.jpg'}
                     alt={product.name}
-                    referrerPolicy="no-referrer"
+                    containerClassName="w-full h-full"
                     className="w-full h-full object-contain object-center bg-[#FAF8F5]"
                   />
 
                   {/* Badges */}
-                  <div className="absolute top-3 left-3 flex flex-col gap-1">
+                  <div className="absolute top-3 left-3 flex flex-col gap-1 z-20">
                     {product.isNew && (
                       <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 bg-[#171717] text-white rounded">
                         Nuevo
@@ -235,10 +236,10 @@ export const ProductDetailModal: React.FC = () => {
                             : 'border-[#EDE4DA] opacity-70 hover:opacity-100'
                         }`}
                       >
-                        <img
+                        <OptimizedImage
                           src={img}
                           alt={`${product.name} vista ${idx + 1}`}
-                          referrerPolicy="no-referrer"
+                          containerClassName="w-full h-full"
                           className="w-full h-full object-cover"
                         />
                       </button>

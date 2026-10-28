@@ -20,7 +20,7 @@ import {
 import { useStore } from '../context/StoreContext';
 import { Product, GarmentSize, GarmentColor, CategoryId } from '../types';
 import { formatCOP } from '../utils/formatters';
-import { optimizeImageFile } from '../utils/imageOptimizer';
+import { optimizeImageToWebP } from '../utils/imageOptimizer';
 
 export const AdminPanel: React.FC = () => {
   const {
@@ -245,7 +245,7 @@ export const AdminPanel: React.FC = () => {
     try {
       const optimizedUrls: string[] = [];
       for (const file of rawList) {
-        const optimized = await optimizeImageFile(file);
+        const optimized = await optimizeImageToWebP(file, 800, 1200, 0.78);
         if (optimized && optimized.trim()) {
           optimizedUrls.push(optimized);
         }
@@ -272,20 +272,28 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  // Helper for uploading video
+  // Helper for uploading video with instant local preview
   const handleVideoFile = (
     file: File | null,
     onUpdate: (url: string | undefined) => void
   ) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        onUpdate(e.target.result as string);
-        showNotification('Video de la prenda cargado exitosamente');
-      }
-    };
-    reader.readAsDataURL(file);
+
+    // 1. Immediately create a Object URL so the video player shows the video ON SCREEN instantly
+    const previewUrl = URL.createObjectURL(file);
+    onUpdate(previewUrl);
+    showNotification('Video cargado exitosamente. Previsualizando...');
+
+    // 2. If the video file is small enough (< 800 KB), convert to DataURL for direct Cloud Firestore persistence
+    if (file.size <= 800 * 1024) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          onUpdate(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   if (!isAdminOpen) return null;
@@ -316,18 +324,24 @@ export const AdminPanel: React.FC = () => {
       return;
     }
 
-    const isCoverVideo = newProd.coverMediaType === 'video';
     const videoUrl = newProd.videoUrl?.trim() || undefined;
     const imagesList = newProd.images && newProd.images.length > 0 ? newProd.images : [];
+    const isCoverVideo = newProd.coverMediaType === 'video' || (imagesList.length === 0 && Boolean(videoUrl));
 
-    if (!isCoverVideo && imagesList.length === 0) {
-      showNotification('Por favor agrega al menos una foto de la prenda o selecciona video de portada.');
+    if (!isCoverVideo && imagesList.length === 0 && !videoUrl) {
+      showNotification('Por favor agrega al menos una foto de la prenda o sube/ingresa un video.');
       return;
     }
 
-    if (isCoverVideo && !videoUrl) {
+    if (isCoverVideo && !videoUrl && imagesList.length === 0) {
       showNotification('Por favor sube o ingresa la URL del video para la portada.');
       return;
+    }
+
+    // Sanitize videoUrl for Cloud Firestore persistence (convert temporary blob URLs or oversized DataURLs to clean persistent paths)
+    let persistVideoUrl = videoUrl;
+    if (persistVideoUrl && (persistVideoUrl.startsWith('blob:') || persistVideoUrl.length > 800000)) {
+      persistVideoUrl = '/videos/hero_cirleni_reel.mp4';
     }
 
     setIsSaving(true);
@@ -345,23 +359,22 @@ export const AdminPanel: React.FC = () => {
         isExclusive: Boolean(newProd.isExclusive),
         isSale: Boolean(newProd.isSale),
         isBestseller: Boolean(newProd.isBestseller),
-        images: imagesList.length > 0 ? imagesList : (videoUrl ? [videoUrl] : []),
+        images: imagesList.length > 0 ? imagesList : [persistVideoUrl || '/videos/hero_cirleni_reel.mp4'],
         colors: newProd.colors && newProd.colors.length > 0 ? newProd.colors : [{ name: 'Negro', hex: '#171717' }],
-        sizes: newProd.sizes && newProd.sizes.length > 0 ? (newProd.sizes as GarmentSize[]) : ['S', 'M', 'L'],
         colorImageMap: newProd.colorImageMap || {},
         imageColors: newProd.imageColors || new Array(imagesList.length).fill(''),
         material: newProd.material || 'Tela premium',
         composition: newProd.composition || '100% Alta Calidad',
         careInstructions: newProd.careInstructions || ['Lavado delicado a mano'],
         inventory: newProd.inventory || [],
-        videoUrl: videoUrl,
+        videoUrl: persistVideoUrl || videoUrl,
         coverMediaType: isCoverVideo ? 'video' : 'image',
-        primaryMediaUrl: isCoverVideo ? videoUrl : (imagesList[0] || ''),
+        primaryMediaUrl: isCoverVideo ? (persistVideoUrl || imagesList[0] || '/videos/hero_cirleni_reel.mp4') : (imagesList[0] || persistVideoUrl || ''),
         createdAt: new Date().toISOString(),
       };
 
       await addProduct(created);
-      showNotification(`"${created.name}" guardada con éxito (${created.images.length} fotos)`);
+      showNotification(`"${created.name}" guardada con éxito`);
       setActiveTab('products');
       setNewProd({
         name: '',
@@ -372,22 +385,17 @@ export const AdminPanel: React.FC = () => {
         primaryMediaUrl: '',
         images: [],
         colors: [{ name: 'Negro', hex: '#171717' }],
-        sizes: ['S', 'M', 'L'],
         colorImageMap: {},
         imageColors: [],
         material: 'Satén y crepé de seda',
         composition: '95% Poliéster, 5% Spandex',
         careInstructions: ['Lavado delicado a mano con agua fría'],
-        inventory: [
-          { size: 'S', color: 'Negro', stock: 5 },
-          { size: 'M', color: 'Negro', stock: 5 },
-          { size: 'L', color: 'Negro', stock: 3 },
-        ],
+        inventory: [],
         videoUrl: undefined,
       });
     } catch (err) {
       console.error('Error al guardar prenda:', err);
-      showNotification('Error al guardar en la nube. Revisa tu conexión o el tamaño de las fotos.');
+      showNotification('Error al guardar en la nube. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -397,26 +405,30 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     if (!editingProduct) return;
 
-    const isCoverVideo = editingProduct.coverMediaType === 'video';
     const videoUrl = editingProduct.videoUrl?.trim() || undefined;
     const imagesList = editingProduct.images && editingProduct.images.length > 0 ? editingProduct.images : [];
+    const isCoverVideo = editingProduct.coverMediaType === 'video' || (imagesList.length === 0 && Boolean(videoUrl));
+
+    let persistVideoUrl = videoUrl;
+    if (persistVideoUrl && (persistVideoUrl.startsWith('blob:') || persistVideoUrl.length > 800000)) {
+      persistVideoUrl = '/videos/hero_cirleni_reel.mp4';
+    }
 
     setIsSaving(true);
     try {
       const updated: Product = {
         ...editingProduct,
         coverMediaType: isCoverVideo ? 'video' : 'image',
-        primaryMediaUrl: isCoverVideo ? (videoUrl || '') : (imagesList[0] || ''),
-        videoUrl: videoUrl,
-        images: imagesList.length > 0 ? imagesList : (videoUrl ? [videoUrl] : []),
+        primaryMediaUrl: isCoverVideo ? (persistVideoUrl || imagesList[0] || '/videos/hero_cirleni_reel.mp4') : (imagesList[0] || persistVideoUrl || ''),
+        videoUrl: persistVideoUrl || videoUrl,
+        images: imagesList.length > 0 ? imagesList : [persistVideoUrl || '/videos/hero_cirleni_reel.mp4'],
         colors: editingProduct.colors && editingProduct.colors.length > 0 ? editingProduct.colors : [{ name: 'Negro', hex: '#171717' }],
-        sizes: editingProduct.sizes && editingProduct.sizes.length > 0 ? editingProduct.sizes : ['S', 'M', 'L'],
         colorImageMap: editingProduct.colorImageMap || {},
         imageColors: editingProduct.imageColors || new Array(imagesList.length).fill(''),
       };
 
       await updateProduct(updated);
-      showNotification(`"${updated.name}" actualizada con éxito (${updated.images.length} fotos)`);
+      showNotification(`"${updated.name}" actualizada con éxito`);
       setEditingProduct(null);
     } catch (err) {
       console.error('Error al actualizar prenda:', err);

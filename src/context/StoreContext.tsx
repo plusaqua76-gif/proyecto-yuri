@@ -10,22 +10,99 @@ import {
 } from '../types';
 import {
   INITIAL_STORE_SETTINGS,
+  INITIAL_PRODUCTS,
 } from '../data/initialProducts';
-import {
-  db,
-  handleFirestoreError,
-  OperationType,
-  testFirestoreConnection,
-} from '../firebase';
-import {
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  onSnapshot,
-  getDocs,
-  writeBatch,
-} from 'firebase/firestore';
+import { supabase } from '../supabase';
+
+function mapRowToProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name || 'Sin nombre',
+    slug: row.slug || row.id,
+    category: row.category || 'enterizos',
+    price: Number(row.price) || 0,
+    originalPrice: row.original_price ? Number(row.original_price) : undefined,
+    description: row.description || '',
+    shortDescription: row.short_description || '',
+    isNew: Boolean(row.is_new),
+    isExclusive: Boolean(row.is_exclusive),
+    isSale: Boolean(row.is_sale),
+    isBestseller: Boolean(row.is_bestseller),
+    images: Array.isArray(row.images) ? row.images : [],
+    colors: Array.isArray(row.colors) ? row.colors : [{ name: 'Negro', hex: '#171717' }],
+    sizes: Array.isArray(row.sizes) ? row.sizes : ['S', 'M', 'L'],
+    inventory: Array.isArray(row.inventory) ? row.inventory : [],
+    colorImageMap: row.color_image_map || {},
+    imageColors: Array.isArray(row.image_colors) ? row.image_colors : [],
+    material: row.material || 'Tela premium',
+    composition: row.composition || '100% Alta Calidad',
+    careInstructions: Array.isArray(row.care_instructions) ? row.care_instructions : ['Lavado delicado a mano'],
+    videoUrl: row.video_url || undefined,
+    coverMediaType: row.cover_media_type || 'image',
+    primaryMediaUrl: row.primary_media_url || (Array.isArray(row.images) ? row.images[0] : ''),
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+}
+
+function mapProductToRow(prod: Product): any {
+  return {
+    id: prod.id,
+    name: prod.name,
+    slug: prod.slug || prod.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    category: prod.category || 'enterizos',
+    price: Number(prod.price) || 0,
+    original_price: prod.originalPrice ? Number(prod.originalPrice) : null,
+    description: prod.description || '',
+    short_description: prod.shortDescription || '',
+    is_new: Boolean(prod.isNew),
+    is_exclusive: Boolean(prod.isExclusive),
+    is_sale: Boolean(prod.isSale),
+    is_bestseller: Boolean(prod.isBestseller),
+    images: prod.images || [],
+    colors: prod.colors || [],
+    sizes: prod.sizes || [],
+    inventory: prod.inventory || [],
+    color_image_map: prod.colorImageMap || {},
+    image_colors: prod.imageColors || [],
+    material: prod.material || 'Tela premium',
+    composition: prod.composition || '100% Alta Calidad',
+    care_instructions: prod.careInstructions || [],
+    video_url: prod.videoUrl || null,
+    cover_media_type: prod.coverMediaType || 'image',
+    primary_media_url: prod.primaryMediaUrl || prod.images?.[0] || '',
+    created_at: prod.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapRowToSettings(row: any): StoreSettings {
+  return {
+    brandName: row.brand_name || INITIAL_STORE_SETTINGS.brandName,
+    whatsappNumber: row.whatsapp_number || INITIAL_STORE_SETTINGS.whatsappNumber,
+    whatsappDisplay: row.whatsapp_display || INITIAL_STORE_SETTINGS.whatsappDisplay,
+    instagramUrl: row.instagram_url || INITIAL_STORE_SETTINGS.instagramUrl,
+    logoUrl: row.logo_url || INITIAL_STORE_SETTINGS.logoUrl,
+    announcementText: row.announcement_text || INITIAL_STORE_SETTINGS.announcementText,
+    shippingNotice: row.shipping_notice || INITIAL_STORE_SETTINGS.shippingNotice,
+    freeShippingThreshold: Number(row.free_shipping_threshold) || INITIAL_STORE_SETTINGS.freeShippingThreshold,
+    adminPasscode: row.admin_passcode || INITIAL_STORE_SETTINGS.adminPasscode,
+  };
+}
+
+function mapSettingsToRow(settings: StoreSettings): any {
+  return {
+    id: 'main',
+    brand_name: settings.brandName,
+    whatsapp_number: settings.whatsappNumber,
+    whatsapp_display: settings.whatsappDisplay,
+    instagram_url: settings.instagramUrl,
+    logo_url: settings.logoUrl,
+    announcement_text: settings.announcementText,
+    shipping_notice: settings.shippingNotice,
+    free_shipping_threshold: settings.freeShippingThreshold,
+    admin_passcode: settings.adminPasscode,
+    updated_at: new Date().toISOString(),
+  };
+}
 
 interface StoreContextType {
   products: Product[];
@@ -131,20 +208,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Products state (initial cache from localStorage, excluding demo items)
+  // Products state (instant initial cache from localStorage or initial boutique catalog for 0ms load)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (saved) {
         const parsed: Product[] = JSON.parse(saved);
-        // Exclude demo mock products so user starts clean
-        const nonDemo = parsed.filter((p) => !p.id.startsWith('ch-enterizo-') && !p.id.startsWith('ch-vestido-') && !p.id.startsWith('ch-conjunto-') && !p.id.startsWith('ch-blusa-') && !p.id.startsWith('ch-pantalon-') && !p.id.startsWith('ch-accesorio-'));
-        return nonDemo;
+        if (parsed && parsed.length > 0) return parsed;
       }
     } catch {
       // ignore
     }
-    return [];
+    return INITIAL_PRODUCTS;
   });
 
   // Store Settings state
@@ -274,80 +349,103 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  // REAL-TIME FIRESTORE SYNCHRONIZATION
+  // REAL-TIME SUPABASE SYNCHRONIZATION
   useEffect(() => {
-    testFirestoreConnection();
+    async function initSupabaseData() {
+      try {
+        setIsSyncing(true);
 
-    // 1. Listen to products collection
-    const unsubProducts = onSnapshot(
-      collection(db, 'products'),
-      (snapshot) => {
-        setIsCloudConnected(true);
-        if (snapshot.empty) {
-          setProducts([]);
-        } else {
-          const cloudProds: Product[] = [];
-          snapshot.forEach((docSnap) => {
-            cloudProds.push(docSnap.data() as Product);
-          });
-          // Sort by creation date or retain order
-          cloudProds.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-          setProducts(cloudProds);
-        }
-      },
-      (error) => {
-        handleFirestoreError(error, OperationType.GET, 'products');
-      }
-    );
+        // 1. Fetch initial products from Supabase
+        const { data: prodRows, error: prodErr } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-    // 2. Listen to settings document
-    const unsubSettings = onSnapshot(
-      doc(db, 'settings', 'main'),
-      async (docSnap) => {
-        if (!docSnap.exists()) {
-          try {
-            await setDoc(doc(db, 'settings', 'main'), cleanForFirestore(INITIAL_STORE_SETTINGS));
-          } catch (err) {
-            console.error('Error al inicializar settings en Firestore:', err);
-          }
-        } else {
-          const loaded = docSnap.data() as StoreSettings;
-          if (loaded.whatsappNumber === '573213490850' || !loaded.whatsappNumber) {
-            loaded.whatsappNumber = '573125964567';
-            loaded.whatsappDisplay = '+57 312 596 4567';
-            try {
-              setDoc(doc(db, 'settings', 'main'), cleanForFirestore(loaded)).catch(() => {});
-            } catch {
-              // ignore
-            }
-          }
-          setStoreSettings(loaded);
+        if (!prodErr && prodRows && prodRows.length > 0) {
+          const loadedProds = prodRows.map(mapRowToProduct);
+          setProducts(loadedProds);
+          setIsCloudConnected(true);
         }
-      },
-      (error) => {
-        handleFirestoreError(error, OperationType.GET, 'settings/main');
+
+        // 2. Fetch initial settings from Supabase
+        const { data: settingsRow, error: setErr } = await supabase
+          .from('store_settings')
+          .select('*')
+          .eq('id', 'main')
+          .maybeSingle();
+
+        if (!setErr && settingsRow) {
+          setStoreSettings(mapRowToSettings(settingsRow));
+        }
+      } catch (err) {
+        console.warn('Supabase fetch notice, preserving local state:', err);
+      } finally {
+        setIsSyncing(false);
       }
-    );
+    }
+
+    initSupabaseData();
+
+    // Subscribe to realtime changes on products table
+    const productsChannel = supabase
+      .channel('public:products')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          setIsCloudConnected(true);
+          if (payload.eventType === 'INSERT') {
+            const newProd = mapRowToProduct(payload.new);
+            setProducts((prev) => [newProd, ...prev.filter((p) => p.id !== newProd.id)]);
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedProd = mapRowToProduct(payload.new);
+            setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            setProducts((prev) => prev.filter((p) => p.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to realtime changes on store_settings table
+    const settingsChannel = supabase
+      .channel('public:store_settings')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'store_settings' },
+        (payload) => {
+          if (payload.new) {
+            setStoreSettings(mapRowToSettings(payload.new));
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
-      unsubProducts();
-      unsubSettings();
+      supabase.removeChannel(productsChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, []);
 
-  // CRUD Operations synced with Cloud Firestore
+  // CRUD Operations synced with Supabase
   const addProduct = async (newProduct: Product) => {
     setIsSyncing(true);
     // Optimistic local update
-    setProducts((prev) => [newProduct, ...prev]);
-    showNotification(`Guardando "${newProduct.name}" en la nube...`);
+    setProducts((prev) => [newProduct, ...prev.filter((p) => p.id !== newProduct.id)]);
+    showNotification(`Guardando "${newProduct.name}" en Supabase...`);
 
     try {
-      await setDoc(doc(db, 'products', newProduct.id), cleanForFirestore(newProduct));
-      showNotification(`"${newProduct.name}" guardado exitosamente en Firebase`);
+      const row = mapProductToRow(newProduct);
+      const { error } = await supabase.from('products').upsert(row, { onConflict: 'id' });
+      if (error) {
+        console.error('Error insertando en Supabase:', error.message);
+        showNotification(`Nota: Guardado local de "${newProduct.name}"`);
+      } else {
+        showNotification(`"${newProduct.name}" guardado exitosamente en Supabase`);
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `products/${newProduct.id}`);
-      throw error;
+      console.error('Error al guardar en Supabase:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -360,14 +458,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (selectedProduct?.id === updated.id) {
       setSelectedProduct(updated);
     }
-    showNotification(`Actualizando "${updated.name}" en la nube...`);
+    showNotification(`Actualizando "${updated.name}" en Supabase...`);
 
     try {
-      await setDoc(doc(db, 'products', updated.id), cleanForFirestore(updated));
-      showNotification(`"${updated.name}" actualizado en la nube`);
+      const row = mapProductToRow(updated);
+      const { error } = await supabase.from('products').upsert(row, { onConflict: 'id' });
+      if (error) {
+        console.error('Error actualizando en Supabase:', error.message);
+      } else {
+        showNotification(`"${updated.name}" actualizado en Supabase`);
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `products/${updated.id}`);
-      throw error;
+      console.error('Error al actualizar en Supabase:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -376,13 +478,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteProduct = async (id: string) => {
     setIsSyncing(true);
     setProducts((prev) => prev.filter((p) => p.id !== id));
-    showNotification('Eliminando de la nube...');
+    showNotification('Eliminando de la base de datos Supabase...');
 
     try {
-      await deleteDoc(doc(db, 'products', id));
-      showNotification('Prenda eliminada de la base de datos');
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) {
+        console.error('Error eliminando de Supabase:', error.message);
+      } else {
+        showNotification('Prenda eliminada de Supabase');
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
+      console.error('Error al eliminar de Supabase:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -390,22 +496,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const clearAllProducts = async () => {
     setIsSyncing(true);
-    showNotification('Limpiando base de datos en la nube...');
+    showNotification('Limpiando catálogo en Supabase...');
     try {
-      const snap = await getDocs(collection(db, 'products'));
-      const batch = writeBatch(db);
-      snap.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-
-      setProducts([]);
-      try {
-        localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
-      } catch {
-        // ignore
+      const { error } = await supabase.from('products').delete().neq('id', 'keep_none');
+      if (!error) {
+        setProducts([]);
+        try {
+          localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
+        } catch {
+          // ignore
+        }
+        showNotification('Catálogo limpiado en Supabase.');
       }
-      showNotification('Catálogo limpiado. Listo para registrar tus prendas originales.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'products');
+      console.error('Error al limpiar productos:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -415,13 +519,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsSyncing(true);
     const updated = { ...storeSettings, ...newSettings };
     setStoreSettings(updated);
-    showNotification('Guardando ajustes en la nube...');
+    showNotification('Guardando ajustes en Supabase...');
 
     try {
-      await setDoc(doc(db, 'settings', 'main'), cleanForFirestore(updated));
-      showNotification('Ajustes guardados en Firebase Cloud');
+      const row = mapSettingsToRow(updated);
+      const { error } = await supabase.from('store_settings').upsert(row, { onConflict: 'id' });
+      if (error) {
+        console.error('Error guardando ajustes en Supabase:', error.message);
+      } else {
+        showNotification('Ajustes guardados en Supabase');
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings/main');
+      console.error('Error al guardar ajustes en Supabase:', error);
     } finally {
       setIsSyncing(false);
     }

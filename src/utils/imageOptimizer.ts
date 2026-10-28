@@ -1,20 +1,16 @@
 import { Product } from '../types';
 
 /**
- * Compresses and resizes an uploaded image file on the client side using HTML5 Canvas.
- * Reduces 3MB-10MB mobile/camera images to ~60KB - 95KB while maintaining high visual clarity.
- * This guarantees the images fit easily into Firestore's 1MB document limit.
- *
- * Resilience: Never rejects! If canvas processing is not supported or fails, it gracefully
- * falls back to the original DataURL.
+ * Resizes and converts an uploaded image file on the client side using HTML5 Canvas to WebP format.
+ * Generates lightweight, high-clarity WebP images to fit safely into Firestore or cloud storage.
  */
-export async function optimizeImageFile(
+export async function optimizeImageToWebP(
   file: File,
-  maxDimension = 900,
-  quality = 0.70
+  maxWidth = 800,
+  maxHeight = 1200,
+  quality = 0.78
 ): Promise<string> {
   return new Promise((resolve) => {
-    // Basic validation
     if (!file) {
       resolve('');
       return;
@@ -29,7 +25,7 @@ export async function optimizeImageFile(
         return;
       }
 
-      // If SVG or gif, return as-is
+      // If SVG or GIF, return as-is
       if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
         resolve(dataUrl);
         return;
@@ -48,20 +44,19 @@ export async function optimizeImageFile(
               return;
             }
 
-            // Downscale if exceeds maxDimension
-            if (width > maxDimension || height > maxDimension) {
-              if (width > height) {
-                height = Math.round((height * maxDimension) / width);
-                width = maxDimension;
-              } else {
-                width = Math.round((width * maxDimension) / height);
-                height = maxDimension;
-              }
+            // Calculate new dimensions preserving exact aspect ratio without distortion
+            let targetW = width;
+            let targetH = height;
+
+            if (targetW > maxWidth || targetH > maxHeight) {
+              const ratio = Math.min(maxWidth / targetW, maxHeight / targetH);
+              targetW = Math.round(targetW * ratio);
+              targetH = Math.round(targetH * ratio);
             }
 
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = targetW;
+            canvas.height = targetH;
 
             const ctx = canvas.getContext('2d');
             if (!ctx) {
@@ -69,15 +64,20 @@ export async function optimizeImageFile(
               return;
             }
 
-            // Smooth downsampling
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, width, height);
+            ctx.drawImage(img, 0, 0, targetW, targetH);
 
-            // Export to JPEG
-            const optimized = canvas.toDataURL('image/jpeg', quality);
-            if (optimized && optimized.length > 50) {
-              resolve(optimized);
+            // Export as image/webp
+            let webpResult = canvas.toDataURL('image/webp', quality);
+            
+            // Fallback to JPEG if WebP export is unsupported
+            if (!webpResult.startsWith('data:image/webp')) {
+              webpResult = canvas.toDataURL('image/jpeg', quality);
+            }
+
+            if (webpResult && webpResult.length > 50) {
+              resolve(webpResult);
             } else {
               resolve(dataUrl);
             }
@@ -87,8 +87,7 @@ export async function optimizeImageFile(
           }
         };
 
-        img.onerror = (imgErr) => {
-          console.warn('Image loading error, returning raw data:', imgErr);
+        img.onerror = () => {
           resolve(dataUrl);
         };
 
@@ -99,13 +98,37 @@ export async function optimizeImageFile(
       }
     };
 
-    reader.onerror = (readerErr) => {
-      console.error('FileReader failed to read file:', readerErr);
+    reader.onerror = () => {
       resolve('');
     };
 
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Legacy compatibility wrapper for optimizeImageFile
+ */
+export async function optimizeImageFile(
+  file: File,
+  maxDimension = 900,
+  quality = 0.75
+): Promise<string> {
+  return optimizeImageToWebP(file, maxDimension, maxDimension, quality);
+}
+
+/**
+ * Generates a WebP thumbnail (400 x 600 max) for catalog grid cards.
+ */
+export async function optimizeImageForCatalog(file: File): Promise<string> {
+  return optimizeImageToWebP(file, 400, 600, 0.75);
+}
+
+/**
+ * Generates a high-resolution WebP image (800 x 1200 max) for product detail modal.
+ */
+export async function optimizeImageForDetail(file: File): Promise<string> {
+  return optimizeImageToWebP(file, 800, 1200, 0.80);
 }
 
 /**
@@ -131,13 +154,11 @@ export function getProductImageForColor(
 
   // 2. Check colorImageMap
   if (product.colorImageMap) {
-    // Exact or lowercase match
     const matchingKey = Object.keys(product.colorImageMap).find(
       (k) => k.trim().toLowerCase() === target
     );
     if (matchingKey && product.colorImageMap[matchingKey]) {
       const val = product.colorImageMap[matchingKey];
-      // Check if value is an index number
       const num = parseInt(val, 10);
       if (!isNaN(num) && product.images && product.images[num]) {
         return product.images[num];

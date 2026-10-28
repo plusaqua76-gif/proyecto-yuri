@@ -3,6 +3,7 @@ import { X, ArrowRight, ShoppingBag, Eye, Heart } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatCOP } from '../utils/formatters';
 import { getProductImageForColor } from '../utils/imageOptimizer';
+import { OptimizedImage } from './OptimizedImage';
 
 export const ProductQuickView: React.FC = () => {
   const {
@@ -66,10 +67,10 @@ export const ProductQuickView: React.FC = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <img
+              <OptimizedImage
                 src={displayedImg}
                 alt={product.name}
-                referrerPolicy="no-referrer"
+                containerClassName="w-full h-full"
                 className="w-full h-full object-cover"
               />
             )}

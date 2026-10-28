@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   SlidersHorizontal,
   Search,
@@ -8,7 +8,8 @@ import {
   RotateCcw,
   Tag,
   Grid3X3,
-  LayoutGrid
+  LayoutGrid,
+  Loader2
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from './ProductCard';
@@ -26,11 +27,25 @@ export const CatalogView: React.FC = () => {
     setIsAdminOpen,
   } = useStore();
 
+  const highestPriceInCatalog = useMemo(() => {
+    if (!products || products.length === 0) return 1000000;
+    const prices = products.map((p) => Number(p.price) || 0);
+    return Math.max(...prices, 800000);
+  }, [products]);
+
   const [selectedColorHex, setSelectedColorHex] = useState<string | 'all'>('all');
-  const [maxPrice, setMaxPrice] = useState<number>(300000);
+  const [maxPrice, setMaxPrice] = useState<number>(1000000);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'name'>('featured');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [gridCols, setGridCols] = useState<'3' | '4'>('3');
+
+  // Progressive loading (renders initial 12 products as requested)
+  const [visibleCount, setVisibleCount] = useState(12);
+  const observerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [activeCategory, searchQuery, selectedColorHex, maxPrice, sortBy]);
 
   // Collect all unique colors from current catalog
   const availableColors = useMemo(() => {
@@ -48,9 +63,22 @@ export const CatalogView: React.FC = () => {
   // Filtered & sorted products list
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      // 1. Category
+      // 1. Flexible Category Matching (case-insensitive & synonym friendly)
       if (activeCategory !== 'todos') {
-        if (product.category !== activeCategory) return false;
+        const pCat = (product.category || '').toLowerCase().trim();
+        const aCat = activeCategory.toLowerCase().trim();
+
+        const matchesCat =
+          pCat === aCat ||
+          pCat.startsWith(aCat) ||
+          aCat.startsWith(pCat) ||
+          (aCat === 'sets' && (pCat.includes('set') || pCat.includes('conjunto') || pCat.includes('dos piezas') || pCat.includes('2 piezas'))) ||
+          (aCat === 'enterizos' && (pCat.includes('enteriz') || pCat.includes('jumpsuit') || pCat.includes('mono'))) ||
+          (aCat === 'vestidos' && (pCat.includes('vestid') || pCat.includes('dress'))) ||
+          (aCat === 'bodys' && pCat.includes('body')) ||
+          (aCat === 'crop-tops' && (pCat.includes('crop') || pCat.includes('top') || pCat.includes('blusa') || pCat.includes('camisa')));
+
+        if (!matchesCat) return false;
       }
 
       // 2. Search query
@@ -58,20 +86,20 @@ export const CatalogView: React.FC = () => {
         const q = searchQuery.toLowerCase();
         const matchesName = product.name.toLowerCase().includes(q);
         const matchesDesc = product.description.toLowerCase().includes(q);
-        const matchesCat = product.category.toLowerCase().includes(q);
-        const matchesColor = product.colors.some((c) => c.name.toLowerCase().includes(q));
+        const matchesCat = (product.category || '').toLowerCase().includes(q);
+        const matchesColor = product.colors?.some((c) => c.name.toLowerCase().includes(q));
         if (!matchesName && !matchesDesc && !matchesCat && !matchesColor) return false;
       }
 
       // 3. Color filter
       if (selectedColorHex !== 'all') {
-        if (!product.colors.some((c) => c.hex.toLowerCase() === selectedColorHex.toLowerCase())) {
+        if (!product.colors?.some((c) => c.hex.toLowerCase() === selectedColorHex.toLowerCase())) {
           return false;
         }
       }
 
       // 4. Price filter
-      if (product.price > maxPrice) return false;
+      if (product.price && product.price > maxPrice) return false;
 
       return true;
     }).sort((a, b) => {
@@ -89,10 +117,30 @@ export const CatalogView: React.FC = () => {
     sortBy,
   ]);
 
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
+  // Automatically load next 12 products when user scrolls near the bottom of screen
+  useEffect(() => {
+    if (!observerRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 12, filteredProducts.length));
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [filteredProducts.length]);
+
   const resetAllFilters = () => {
     setActiveCategory('todos');
     setSelectedColorHex('all');
-    setMaxPrice(300000);
+    setMaxPrice(highestPriceInCatalog);
     setSearchQuery('');
     setSortBy('featured');
   };
@@ -255,16 +303,16 @@ export const CatalogView: React.FC = () => {
               </div>
               <input
                 type="range"
-                min={70000}
-                max={300000}
+                min={50000}
+                max={highestPriceInCatalog}
                 step={10000}
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(Number(e.target.value))}
                 className="w-full accent-[#171717] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[#77716C] mt-1 tabular-nums">
-                <span>$70.000 COP</span>
-                <span>$300.000 COP</span>
+                <span>$50.000 COP</span>
+                <span>{formatCOP(highestPriceInCatalog)}</span>
               </div>
             </div>
 
@@ -331,11 +379,30 @@ export const CatalogView: React.FC = () => {
                 </button>
               </div>
             ) : (
-              /* Product Cards Grid */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
+              /* Product Cards Grid with Automatic On-Scroll Infinite Loading */
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
+                  {displayedProducts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+
+                {/* Sentinel Element & Loading Indicator for On-Scroll Infinite Loading */}
+                {visibleCount < filteredProducts.length ? (
+                  <div
+                    ref={observerRef}
+                    className="pt-6 pb-2 text-center flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#EDE4DA] rounded-full text-xs font-semibold text-[#77716C] shadow-2xs">
+                      <Loader2 className="w-3.5 h-3.5 text-[#C6A77D] animate-spin" />
+                      <span>Cargando más prendas a medida que exploras ({filteredProducts.length - visibleCount} restantes)...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-6 text-center text-xs font-medium text-[#77716C] tracking-wide">
+                    ✨ Has visto todas las {filteredProducts.length} prendas de esta sección
+                  </div>
+                )}
               </div>
             )}
 

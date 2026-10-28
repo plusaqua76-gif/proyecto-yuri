@@ -17,9 +17,9 @@ service cloud.firestore {
         && data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.category is string
         && data.price is number && data.price >= 0
-        && data.images is list && data.images.size() > 0 && data.images.size() <= 30
+        && data.images is list && data.images.size() <= 30
         && data.colors is list && data.colors.size() <= 20
-        && data.sizes is list && data.sizes.size() <= 20
+        && (!('sizes' in data) || data.sizes == null || data.sizes is list)
         && (!('videoUrl' in data) || data.videoUrl == null || data.videoUrl is string)
         && (!('description' in data) || data.description is string)
         && (!('isNew' in data) || data.isNew is bool)

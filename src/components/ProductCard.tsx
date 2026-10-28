@@ -4,6 +4,7 @@ import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatCOP, calculateDiscount } from '../utils/formatters';
 import { getProductImageForColor } from '../utils/imageOptimizer';
+import { OptimizedImage } from './OptimizedImage';
 
 interface ProductCardProps {
   product: Product;
@@ -27,10 +28,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
 
   const discount = calculateDiscount(product.price, product.originalPrice);
   const isFavorite = isInWishlist(product.id);
-
-  // Check if completely out of stock across all inventory
-  const totalStock = product.inventory?.reduce((sum, v) => sum + v.stock, 0) ?? 10;
-  const isSoldOut = totalStock <= 0;
 
   // Active media: check if video is selected as cover
   const isCoverVideo = product.coverMediaType === 'video' && Boolean(product.primaryMediaUrl || product.videoUrl);
@@ -63,7 +60,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isSoldOut) return;
 
     // Pick first available size & selected color
     const defaultColor = product.colors[selectedColorIndex] || product.colors[0];
@@ -113,10 +109,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
             className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-104"
           />
         ) : (
-          <img
+          <OptimizedImage
             src={displayedImage || '/src/assets/images/fashion_enterizo_black_1792782858876.jpg'}
             alt={product.name}
-            referrerPolicy="no-referrer"
+            containerClassName="w-full h-full"
             className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-104"
           />
         )}
@@ -136,11 +132,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
           {product.isExclusive && (
             <span className="text-[10px] uppercase font-medium tracking-wider px-2.5 py-1 bg-white/95 text-[#171717] border border-[#EDE4DA] rounded">
               Exclusivo
-            </span>
-          )}
-          {isSoldOut && (
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 bg-red-600 text-white rounded">
-              Agotado
             </span>
           )}
         </div>
@@ -184,15 +175,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
           <button
             type="button"
             onClick={handleQuickAdd}
-            disabled={isSoldOut}
             className={`p-2.5 rounded shadow-md transition-colors ${
               justAdded
                 ? 'bg-emerald-600 text-white'
-                : isSoldOut
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-[#171717] hover:bg-[#C6A77D] text-white'
+                : 'bg-[#171717] hover:bg-[#C6A77D] text-white active:scale-95'
             }`}
-            title={isSoldOut ? 'Agotado' : 'Agregar a la bolsa'}
+            title={justAdded ? 'Agregado' : 'Agregar a la bolsa'}
           >
             {justAdded ? (
               <Check className="w-4 h-4" />
