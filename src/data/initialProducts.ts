@@ -14,12 +14,12 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
 
 // Generated high-definition asset paths
 export const ASSET_IMAGES = {
-  hero: '/videos/hero_poster.jpg',
-  enterizoBlack: '/src/assets/images/fashion_enterizo_black_1792782858876.jpg',
-  vestidoAurora: '/src/assets/images/fashion_vestido_aurora_1792782860124.jpg',
-  conjuntoMarfil: '/assets/aistudio/imgdownloader-080c057c_9fa09d13.jpeg',
-  blusaSeda: '/src/assets/images/fashion_blusa_seda_1792782873911.jpg',
-  pantalonPalazzo: '/src/assets/images/fashion_pantalon_palazzo_1792782874277.jpg',
+  hero: '/videos/hero_poster.webp',
+  enterizoBlack: '/src/assets/images/fashion_enterizo_black_1792782858876.webp',
+  vestidoAurora: '/src/assets/images/fashion_vestido_aurora_1792782860124.webp',
+  conjuntoMarfil: '/assets/aistudio/imgdownloader-080c057c_9fa09d13.webp',
+  blusaSeda: '/src/assets/images/fashion_blusa_seda_1792782873911.webp',
+  pantalonPalazzo: '/src/assets/images/fashion_pantalon_palazzo_1792782874277.webp',
 };
 
 export const INITIAL_PRODUCTS: Product[] = [

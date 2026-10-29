@@ -132,6 +132,41 @@ export async function optimizeImageForDetail(file: File): Promise<string> {
 }
 
 /**
+ * Maps any image URL to its lightweight WebP thumbnail (400x600) for catalog grids.
+ * Reduces asset size from ~750KB to ~20KB while preserving original ratio.
+ */
+export function getThumbnailUrl(url: string | null | undefined): string {
+  if (!url) return '/src/assets/images/fashion_enterizo_black_1792782858876_thumb.webp';
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.includes('/src/assets/images/') && (url.endsWith('.jpg') || url.endsWith('.jpeg'))) {
+    return url.replace(/\.(jpg|jpeg)$/, '_thumb.webp');
+  }
+  if (url.includes('/assets/aistudio/') && (url.endsWith('.jpeg') || url.endsWith('.jpg'))) {
+    return url.replace(/\.(jpg|jpeg)$/, '_thumb.webp');
+  }
+  return url;
+}
+
+/**
+ * Maps any image URL to its high-resolution WebP (800x1200) for product zoom/detail modal.
+ */
+export function getDetailImageUrl(url: string | null | undefined): string {
+  if (!url) return '/src/assets/images/fashion_enterizo_black_1792782858876.webp';
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.includes('/src/assets/images/') && (url.endsWith('.jpg') || url.endsWith('.jpeg'))) {
+    return url.replace(/\.(jpg|jpeg)$/, '.webp');
+  }
+  if (url.includes('/assets/aistudio/') && (url.endsWith('.jpeg') || url.endsWith('.jpg'))) {
+    return url.replace(/\.(jpg|jpeg)$/, '.webp');
+  }
+  return url;
+}
+
+/**
  * Universal helper to resolve the exact photo assigned to a given color for a product.
  * Checks imageColors parallel array first, then colorImageMap.
  */

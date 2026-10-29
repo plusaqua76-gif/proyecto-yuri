@@ -3,15 +3,16 @@ import { Heart, Eye, ShoppingBag, Film, Sparkles, Check } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatCOP, calculateDiscount } from '../utils/formatters';
-import { getProductImageForColor } from '../utils/imageOptimizer';
+import { getProductImageForColor, getThumbnailUrl } from '../utils/imageOptimizer';
 import { OptimizedImage } from './OptimizedImage';
 
 interface ProductCardProps {
   product: Product;
   onOpenDetail?: (product: Product) => void;
+  priority?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail, priority = false }) => {
   const {
     isInWishlist,
     toggleWishlist,
@@ -34,8 +35,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
   const coverVideoSrc = product.primaryMediaUrl || product.videoUrl;
 
   const mainImage = product.images?.[0] || '';
-  const secondaryImage = product.images?.[1] || product.images?.[0] || '';
-  const currentImage = isHovered && product.images && product.images.length > 1 ? secondaryImage : mainImage;
+  // Avoid computing or fetching secondary image until hovered
+  const currentImage = isHovered && product.images && product.images.length > 1 ? product.images[1] : mainImage;
 
   const handleCardClick = () => {
     addRecentlyViewed(product);
@@ -86,8 +87,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
   // Determine media to render:
   // 1. If user clicked a color that has a photo, show that photo!
   // 2. Otherwise if cover is video, play video.
-  // 3. Otherwise show standard image gallery preview.
-  const displayedImage = selectedColorImage || currentImage;
+  // 3. Otherwise show standard image gallery preview with lightweight WebP thumbnail.
+  const rawImage = selectedColorImage || currentImage;
+  const displayedImage = getThumbnailUrl(rawImage);
   const showVideo = !selectedColorImage && isCoverVideo && Boolean(coverVideoSrc);
 
   return (
@@ -106,12 +108,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail 
             loop
             muted
             playsInline
+            preload={priority ? 'metadata' : 'none'}
             className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-104"
           />
         ) : (
           <OptimizedImage
-            src={displayedImage || '/src/assets/images/fashion_enterizo_black_1792782858876.jpg'}
+            src={displayedImage || '/src/assets/images/fashion_enterizo_black_1792782858876_thumb.webp'}
             alt={product.name}
+            priority={priority}
             containerClassName="w-full h-full"
             className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-104"
           />

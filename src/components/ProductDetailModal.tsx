@@ -17,7 +17,7 @@ import {
 import { Product, GarmentSize, GarmentColor } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatCOP, calculateDiscount, generateWhatsAppOrderUrl } from '../utils/formatters';
-import { getProductImageForColor } from '../utils/imageOptimizer';
+import { getProductImageForColor, getDetailImageUrl, getThumbnailUrl } from '../utils/imageOptimizer';
 import { OptimizedImage } from './OptimizedImage';
 
 export const ProductDetailModal: React.FC = () => {
@@ -202,8 +202,9 @@ export const ProductDetailModal: React.FC = () => {
                 {/* Main Large Image */}
                 <div className="relative aspect-[4/5] max-h-[350px] sm:aspect-[3/4] sm:max-h-[520px] w-full rounded-xl overflow-hidden bg-white border border-[#EDE4DA] shadow-xs">
                   <OptimizedImage
-                    src={product.images[activeImageIndex] || product.images[0] || '/src/assets/images/fashion_enterizo_black_1792782858876.jpg'}
+                    src={getDetailImageUrl(product.images[activeImageIndex] || product.images[0])}
                     alt={product.name}
+                    priority={true}
                     containerClassName="w-full h-full"
                     className="w-full h-full object-contain object-center bg-[#FAF8F5]"
                   />
@@ -237,7 +238,7 @@ export const ProductDetailModal: React.FC = () => {
                         }`}
                       >
                         <OptimizedImage
-                          src={img}
+                          src={getThumbnailUrl(img)}
                           alt={`${product.name} vista ${idx + 1}`}
                           containerClassName="w-full h-full"
                           className="w-full h-full object-cover"

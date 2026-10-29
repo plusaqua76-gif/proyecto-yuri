@@ -33,7 +33,6 @@ const AppContent: React.FC = () => {
   };
 
   // Curated spotlight collections for Home Sections
-  const enterizosSpotlight = products.filter((p) => p.category === 'enterizos').slice(0, 3);
   const vestidosSpotlight = products.filter((p) => p.category === 'vestidos').slice(0, 3);
 
   return (
@@ -53,44 +52,7 @@ const AppContent: React.FC = () => {
         {/* Hero Section */}
         <Hero />
 
-        {/* Featured Section 1: Enterizos que Enamoran (Only if items exist) */}
-        {enterizosSpotlight.length > 0 && (
-          <section className="py-12 md:py-16 bg-white border-b border-[#EDE4DA]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                <div>
-                  <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-[#C6A77D] font-semibold mb-1">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Siluetas Icónicas</span>
-                  </div>
-                  <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold text-[#171717]">
-                    Enterizos que Enamoran
-                  </h2>
-                  <p className="text-xs text-[#77716C] mt-1">
-                    Estructuras de alta costura que estilizan la postura con elegancia insuperable.
-                  </p>
-                </div>
 
-                <button
-                  onClick={() => {
-                    setActiveCategory('enterizos');
-                    document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="inline-flex items-center gap-2 text-xs font-semibold text-[#171717] hover:text-[#C6A77D] transition-colors"
-                >
-                  <span>Ver todos los enterizos</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
-                {enterizosSpotlight.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* Featured Section 2: Vestidos de Gala & Celebración (Only if items exist) */}
         {vestidosSpotlight.length > 0 && (

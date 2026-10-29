@@ -355,15 +355,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         setIsSyncing(true);
 
-        // 1. Fetch initial products from Supabase
-        const { data: prodRows, error: prodErr } = await supabase
+        // 1. Fetch initial batch of products (0-19) so catalog renders instantly (~1.2s) without timeout
+        const pageSize = 20;
+        const { data: firstBatch, error: firstErr } = await supabase
           .from('products')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(0, pageSize - 1);
 
-        if (!prodErr && prodRows && prodRows.length > 0) {
-          const loadedProds = prodRows.map(mapRowToProduct);
-          setProducts(loadedProds);
+        if (!firstErr && firstBatch && firstBatch.length > 0) {
+          const initialLoaded = firstBatch.map(mapRowToProduct);
+          setProducts(initialLoaded);
           setIsCloudConnected(true);
         }
 
@@ -376,6 +378,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (!setErr && settingsRow) {
           setStoreSettings(mapRowToSettings(settingsRow));
+        }
+
+        // 3. Progressively fetch remaining product batches without exceeding statement timeout limit
+        if (firstBatch && firstBatch.length === pageSize) {
+          let currentFrom = pageSize;
+          while (true) {
+            const currentTo = currentFrom + pageSize - 1;
+            const { data: nextBatch, error: nextErr } = await supabase
+              .from('products')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .range(currentFrom, currentTo);
+
+            if (nextErr || !nextBatch || nextBatch.length === 0) {
+              break;
+            }
+
+            const nextLoaded = nextBatch.map(mapRowToProduct);
+            setProducts((prev) => {
+              const existingIds = new Set(prev.map((p) => p.id));
+              const additions = nextLoaded.filter((p) => !existingIds.has(p.id));
+              return [...prev, ...additions];
+            });
+
+            if (nextBatch.length < pageSize) {
+              break;
+            }
+            currentFrom += pageSize;
+          }
         }
       } catch (err) {
         console.warn('Supabase fetch notice, preserving local state:', err);

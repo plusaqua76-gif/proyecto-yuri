@@ -382,8 +382,12 @@ export const CatalogView: React.FC = () => {
               /* Product Cards Grid with Automatic On-Scroll Infinite Loading */
               <div className="space-y-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
-                  {displayedProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                  {displayedProducts.map((product, index) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      priority={index < 4}
+                    />
                   ))}
                 </div>
 

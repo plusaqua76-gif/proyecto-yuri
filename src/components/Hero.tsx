@@ -113,7 +113,7 @@ export const Hero: React.FC = () => {
               <video
                 ref={videoRef}
                 src="/videos/hero_cirleni_reel.mp4"
-                poster="/videos/hero_poster.jpg"
+                poster="/videos/hero_poster.webp"
                 autoPlay
                 loop
                 muted
