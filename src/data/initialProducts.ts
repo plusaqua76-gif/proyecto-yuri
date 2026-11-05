@@ -5,7 +5,7 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
   whatsappNumber: '573125964567',
   whatsappDisplay: '+57 312 596 4567',
   instagramUrl: 'https://www.instagram.com/cirlenihernandez',
-  logoUrl: 'https://instagram.fnva3-1.fna.fbcdn.net/v/t51.82787-19/702946366_18598116715011552_1612907721483583567_n.jpg?_nc_cat=106&_nc_map=urlgen_bucketless&ig_cache_key=GD4c5ingHUp84xJCAE_Ag-IGM2IWbmNDAQAB0j-ccb7-5&ccb=7-5&_nc_sid=669407&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLnd3dy44NDYuQzMifQ%3D%3D&_nc_ohc=jUippO3-p8wQ7kNvwGPtHra&_nc_oc=AdoXm99Q0ueb2SPrLuS58nlWOA1Jl_5MHpB1CgUMu1a8LvpJRIqJEnTvtQIas2ug2PQ&_nc_zt=24&_nc_ht=instagram.fnva3-1.fna&_nc_gid=mlGgyWKtteh3tMYHLk931A&_nc_ss=7d6a8&oh=00_AQPYDH2rsPfIEnmTiL2iZyE0FpfiPz-f8w6SlkHWyNF8Fg&oe=6AE18B4A',
+  logoUrl: '/brand-logo.png',
   announcementText: '✨ Colección Alta Costura 2026 · Envíos a toda Colombia · Atención personalizada vía WhatsApp',
   shippingNotice: 'Envíos asegurados a nivel nacional. La disponibilidad y costo de flete se confirman al validar el pedido vía WhatsApp.',
   freeShippingThreshold: 250000,
