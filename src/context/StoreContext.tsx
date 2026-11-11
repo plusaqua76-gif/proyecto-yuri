@@ -228,9 +228,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.whatsappNumber === '573213490850') {
-          parsed.whatsappNumber = '573125964567';
-          parsed.whatsappDisplay = '+57 312 596 4567';
+        if (parsed.whatsappNumber === '573213490850' || parsed.whatsappNumber === '573125964567') {
+          parsed.whatsappNumber = '573212166624';
+          parsed.whatsappDisplay = '+57 321 216 6624';
         }
         return { ...INITIAL_STORE_SETTINGS, ...parsed };
       }

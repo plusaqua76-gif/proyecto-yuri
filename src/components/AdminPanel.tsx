@@ -2078,7 +2078,7 @@ export const AdminPanel: React.FC = () => {
                       onChange={(e) =>
                         setTempSettings({ ...tempSettings, whatsappNumber: e.target.value })
                       }
-                      placeholder="573125964567"
+                      placeholder="573212166624"
                       className="w-full px-3 py-2 border border-[#EDE4DA] rounded-lg font-mono"
                     />
                   </div>
@@ -2091,7 +2091,7 @@ export const AdminPanel: React.FC = () => {
                       onChange={(e) =>
                         setTempSettings({ ...tempSettings, whatsappDisplay: e.target.value })
                       }
-                      placeholder="+57 312 596 4567"
+                      placeholder="+57 321 216 6624"
                       className="w-full px-3 py-2 border border-[#EDE4DA] rounded-lg"
                     />
                   </div>

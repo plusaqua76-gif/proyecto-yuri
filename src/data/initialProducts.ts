@@ -2,8 +2,8 @@ import { Product, StoreSettings } from '../types';
 
 export const INITIAL_STORE_SETTINGS: StoreSettings = {
   brandName: 'Cirleni Hernández Brand Official',
-  whatsappNumber: '573125964567',
-  whatsappDisplay: '+57 312 596 4567',
+  whatsappNumber: '573212166624',
+  whatsappDisplay: '+57 321 216 6624',
   instagramUrl: 'https://www.instagram.com/cirlenihernandez',
   logoUrl: '/brand-logo.png',
   announcementText: '✨ Colección Alta Costura 2026 · Envíos a toda Colombia · Atención personalizada vía WhatsApp',
